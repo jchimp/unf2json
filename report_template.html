@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UniFi Config Report</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #ffffff; --text: #1b1f24; --muted: #5d6670; --line: #dde1e6;
+    --soft: #eef1f4; --hatch: #c9ced5; --ok: #2a8a57; --off: #b04040; --accent: #2f6fdf;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121417; --panel: #1a1d22; --text: #e6e8eb; --muted: #9aa3ad; --line: #2c3138;
+      --soft: #22262c; --hatch: #3a4048; --ok: #4cc283; --off: #e06a6a; --accent: #6a9cf0;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--panel); border-bottom: 1px solid var(--line); }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 16px; }
+  header .wrap { padding-top: 18px; padding-bottom: 0; }
+  h1 { font-size: 20px; margin: 0 0 2px; }
+  h2 { font-size: 16px; margin: 0 0 12px; display: flex; align-items: baseline; gap: 8px; }
+  h2 .count { font-size: 12px; font-weight: 500; color: var(--muted); }
+  .muted { color: var(--muted); }
+  nav { display: flex; gap: 2px; flex-wrap: wrap; margin-top: 12px; }
+  nav a { padding: 8px 12px; color: var(--muted); text-decoration: none; font-weight: 500;
+          border-bottom: 2px solid transparent; }
+  nav a:hover { color: var(--text); border-bottom-color: var(--line); }
+  section { margin: 24px 0; scroll-margin-top: 12px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+           padding: 16px; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line);
+           vertical-align: top; }
+  td { white-space: nowrap; }
+  td.wrap-ok { white-space: normal; min-width: 180px; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-weight: 600; color: var(--muted); font-size: 11px; text-transform: uppercase;
+       letter-spacing: .04em; white-space: nowrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px 1px 6px;
+          border-radius: 999px; border: 1px solid var(--line); margin: 1px 4px 1px 0;
+          font-size: 12px; background: var(--panel); white-space: nowrap; }
+  .chip i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  button.chip { cursor: pointer; color: var(--text); font: inherit; font-size: 12px; }
+  button.chip.active { outline: 2px solid var(--text); outline-offset: 1px; }
+  .tag { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 11px;
+         background: var(--soft); color: var(--muted); margin-right: 4px; }
+  .yes { color: var(--ok); font-weight: 600; } .no { color: var(--muted); }
+  .bad { color: var(--off); font-weight: 600; }
+  .empty { color: var(--muted); font-style: italic; padding: 4px 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 14px; align-items: center; }
+  .legend .muted { font-size: 12px; margin-right: 6px; }
+  .device { margin-bottom: 18px; }
+  .device:last-child { margin-bottom: 0; }
+  .dev-head { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline;
+              margin-bottom: 10px; }
+  .dev-head strong { font-size: 15px; }
+  .faceplate { display: flex; flex-wrap: wrap; gap: 14px; padding: 12px; border-radius: 8px;
+               background: var(--soft); width: max-content; max-width: 100%; }
+  .bank { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); gap: 4px; }
+  .port { width: 32px; height: 36px; border-radius: 5px; position: relative; cursor: pointer;
+          font-size: 10px; font-weight: 700; text-align: center; padding-top: 4px;
+          border: 1px solid rgba(0,0,0,.18); overflow: hidden; transition: opacity .12s; }
+  .port .tags { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; display: flex;
+                border-top: 1px solid rgba(0,0,0,.25); }
+  .port .tags span { flex: 1; }
+  .port .v { position: absolute; top: 1px; right: 2px; font-size: 8px; }
+  .port.sfp { border-radius: 2px; width: 36px; }
+  .port.dflt { background: repeating-linear-gradient(45deg, var(--panel), var(--panel) 4px,
+               var(--hatch) 4px, var(--hatch) 8px); color: var(--muted); }
+  .port.dim { opacity: .15; }
+  .port.sel { outline: 2px solid var(--text); outline-offset: 2px; }
+  .port:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .key { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted);
+         margin: 10px 0 0; }
+  .key .sw { display: inline-block; width: 14px; height: 10px; vertical-align: middle;
+             margin-right: 4px; border-radius: 2px; border: 1px solid var(--line); }
+  .detail { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 8px;
+            min-height: 46px; }
+  .detail dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }
+  .detail dt { color: var(--muted); } .detail dd { margin: 0; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--muted); font-weight: 500; }
+  footer { color: var(--muted); font-size: 12px; padding: 8px 0 32px; }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1 id="title">UniFi Config Report</h1>
+  <div class="muted" id="meta"></div>
+  <nav>
+    <a href="#networks">Networks</a><a href="#profiles">Port Profiles</a>
+    <a href="#lists">Network Lists</a><a href="#ssids">WiFi SSIDs</a>
+    <a href="#apgroups">AP Groups</a><a href="#devices">Devices</a>
+  </nav>
+</div></header>
+
+<main class="wrap">
+  <section id="networks"><h2>Networks <span class="count"></span></h2><div class="panel"></div></section>
+  <section id="profiles"><h2>Port Profiles <span class="count"></span></h2><div class="panel"></div></section>
+  <section id="lists"><h2>Network Lists <span class="count"></span></h2><div class="panel"></div></section>
+  <section id="ssids"><h2>WiFi SSIDs <span class="count"></span></h2><div class="panel"></div></section>
+  <section id="apgroups"><h2>AP Groups <span class="count"></span></h2><div class="panel"></div></section>
+  <section id="devices"><h2>Devices <span class="count"></span></h2><div class="panel"></div></section>
+  <footer id="foot"></footer>
+</main>
+
+<script id="data" type="application/json">__SUMMARY_JSON__</script>
+<script>
+"use strict";
+const S = JSON.parse(document.getElementById("data").textContent);
+
+// ---------- helpers ----------
+function h(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "class") e.className = v;
+    else if (k === "style") e.style.cssText = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  // Flatten fully: callers pass nested arrays (e.g. [dt, dd] pairs per row).
+  for (const c of kids.flat(Infinity)) {
+    if (c === null || c === undefined || c === false) continue;
+    e.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  return e;
+}
+const dash = () => h("span", { class: "no" }, "—");
+const val = v => (v === null || v === undefined || v === "" ? dash() : String(v));
+const bool = (v, good = true) => v === undefined || v === null ? dash()
+  : h("span", { class: v === good ? "yes" : "no" }, v ? "Yes" : "No");
+const list = arr => (arr && arr.length) ? arr.join(", ") : dash();
+
+function table(cols, rows) {
+  if (!rows.length) return h("div", { class: "empty" }, "None defined in this backup.");
+  return h("table", {},
+    h("thead", {}, h("tr", {}, cols.map(c => h("th", {}, c[0])))),
+    h("tbody", {}, rows.map(r => h("tr", {}, cols.map(c => {
+      const out = c[1](r);
+      return h("td", { class: c[2] || null }, out instanceof Node ? out : val(out));
+    })))));
+}
+function fill(id, node, count) {
+  const sec = document.getElementById(id);
+  sec.querySelector(".panel").replaceChildren(node);
+  sec.querySelector(".count").textContent = count === undefined ? "" : `(${count})`;
+}
+
+// ---------- network colors ----------
+// Fixed palette chosen to stay distinct and readable in light and dark themes.
+const PALETTE = ["#2f6fdf", "#e0662f", "#2a9d63", "#c23b8c", "#8a5cd6", "#c9a227",
+                 "#1aa3b5", "#d64545", "#6f8f2a", "#b3742b", "#4f5fbf", "#9b4f2f"];
+const UNTAGGED = "#6b7785";
+const netColor = {};
+[...S.networks]
+  .sort((a, b) => (a.vlan ?? -1) - (b.vlan ?? -1) || String(a.name).localeCompare(b.name))
+  .forEach((n, i) => {
+    netColor[n.name] = n.vlan == null ? UNTAGGED : PALETTE[(i - 0) % PALETTE.length];
+  });
+const vlanOf = Object.fromEntries(S.networks.map(n => [n.name, n.vlan]));
+function textOn(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const L = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return L > 0.6 ? "#111" : "#fff";
+}
+function netChip(name) {
+  if (!name) return dash();
+  const v = vlanOf[name];
+  return h("span", { class: "chip" }, h("i", { style: `background:${netColor[name] || UNTAGGED}` }),
+    v == null ? name : `${name} · ${v}`);
+}
+const netChips = names => (names && names.length) ? h("span", {}, names.map(netChip)) : dash();
+
+// ---------- header ----------
+const B = S.backup || {};
+document.getElementById("meta").textContent =
+  [B.file, B.version && `Controller ${B.version}`, S.sites.length && `Site: ${S.sites.join(", ")}`]
+    .filter(Boolean).join("  ·  ");
+document.title = `UniFi Config · ${S.sites.join(", ") || B.file || ""}`;
+document.getElementById("foot").textContent =
+  `Generated by unf2json from ${B.file || "backup"}. Secrets are not included in this report.`;
+
+// ---------- Networks ----------
+fill("networks", table([
+  ["Name", n => netChip(n.name)],
+  ["VLAN", n => n.vlan ?? "untagged"],
+  ["Purpose", n => n.purpose],
+  ["Subnet", n => n.subnet],
+  ["DHCP range", n => n.dhcp],
+  ["Domain", n => n.domain],
+  ["IGMP snoop", n => bool(n.igmp_snooping)],
+  ["Enabled", n => bool(n.enabled)],
+], [...S.networks].sort((a, b) => (a.vlan ?? 0) - (b.vlan ?? 0))), S.networks.length);
+
+// ---------- Port Profiles ----------
+const fwdLabel = { native: "Native only", all: "All (trunk)", customize: "Custom", disabled: "Disabled" };
+fill("profiles", table([
+  ["Profile", p => h("strong", {}, p.name)],
+  ["Mode", p => fwdLabel[p.settings.forward] || p.settings.forward],
+  ["Native", p => netChip(p.vlans.native)],
+  ["Tagged", p => netChips(p.vlans.tagged), "wrap-ok"],
+  ["Voice", p => netChip(p.vlans.voice)],
+  ["PoE", p => p.settings.poe_mode],
+  ["LLDP-MED", p => bool(p.settings.lldpmed_enabled)],
+  ["Isolation", p => bool(p.settings.isolation, false)],
+  ["Port sec.", p => bool(p.settings.port_security_enabled, false)],
+  ["Storm ctl", p => bool(p.settings.stormctrl, false)],
+  ["Used on", p => {
+    const e = Object.entries(p.used_on || {});
+    return e.length ? e.map(([d, r]) => `${d}: ${r}`).join("; ") : h("span", { class: "no" }, "unused");
+  }, "wrap-ok"],
+], S.port_profiles), S.port_profiles.length);
+
+// ---------- Network Lists ----------
+const listType = { "address-group": "IPv4 addresses", "ipv6-address-group": "IPv6 addresses",
+                   "port-group": "Ports" };
+fill("lists", table([
+  ["Name", l => h("strong", {}, l.name)],
+  ["Type", l => listType[l.type] || l.type],
+  ["Entries", l => l.members.length],
+  ["Members", l => list(l.members), "wrap-ok"],
+], S.network_lists || []), (S.network_lists || []).length);
+
+// ---------- WiFi SSIDs ----------
+const secLabel = w => {
+  if (w.security === "open") return h("span", { class: "bad" }, "Open");
+  const parts = [w.security === "wpapsk" ? "PSK" : w.security === "wpaeap" ? "Enterprise" : w.security];
+  if (w.wpa_mode) parts.push(w.wpa_mode.toUpperCase());
+  if (w.wpa3) parts.push(w.wpa3_transition ? "WPA3 transition" : "WPA3");
+  return parts.filter(Boolean).join(" · ");
+};
+const userSsids = S.wlans.filter(w => !w.system);
+const sysSsids = S.wlans.filter(w => w.system);
+const ssidCols = [
+  ["SSID", w => h("strong", {}, w.ssid)],
+  ["Enabled", w => bool(w.enabled)],
+  ["Network", w => netChip(w.network)],
+  ["Security", secLabel],
+  ["PMF", w => w.pmf_mode],
+  ["Bands", w => (w.bands || []).map(b => b.replace("g", " GHz").replace("2 ", "2.4 ")).join(", ") || null],
+  ["Hidden", w => bool(w.hidden, false)],
+  ["Guest", w => bool(w.guest, false)],
+  ["Client isol.", w => bool(w.l2_isolation, false)],
+  ["Fast roam", w => bool(w.fast_roaming)],
+  ["MAC filter", w => w.mac_filter],
+  ["AP groups", w => w.ap_group_mode === "all" ? "All APs" : list(w.ap_groups)],
+  ["User group", w => w.user_group],
+];
+const ssidWrap = h("div", {}, table(ssidCols, userSsids));
+if (sysSsids.length) {
+  ssidWrap.append(h("details", {}, h("summary", {}, `System SSIDs (${sysSsids.length}) — hidden, created by UniFi (e.g. wireless uplink)`),
+    table([["SSID", w => w.ssid], ["Enabled", w => bool(w.enabled)], ["Security", secLabel],
+           ["Hidden", w => bool(w.hidden, false)]], sysSsids)));
+}
+fill("ssids", ssidWrap, userSsids.length);
+
+// ---------- AP Groups ----------
+fill("apgroups", table([
+  ["Group", g => h("span", {}, h("strong", {}, g.name), g.builtin ? h("span", { class: "tag", style: "margin-left:6px" }, "built-in") : null)],
+  ["APs", g => list(g.aps), "wrap-ok"],
+  ["SSIDs", g => list(g.ssids), "wrap-ok"],
+], S.ap_groups || []), (S.ap_groups || []).length);
+
+// ---------- Devices / port map ----------
+let activeNet = null;
+const portEls = [];
+function carries(p, net) {
+  const v = p.vlans; if (!v) return false;
+  return v.native === net || v.voice === net || (v.tagged || []).includes(net);
+}
+function applyFilter() {
+  for (const { el, p } of portEls) el.classList.toggle("dim", !!activeNet && !carries(p, activeNet));
+  document.querySelectorAll("button.chip[data-net]").forEach(b =>
+    b.classList.toggle("active", b.dataset.net === activeNet));
+}
+function portDetail(dev, p) {
+  const s = p.settings || {}, v = p.vlans;
+  const rows = [
+    ["Port", `${p.port} — ${p.name}${p.media ? ` (${p.media})` : ""}`],
+    ["Profile", p.profile],
+  ];
+  if (v) rows.push(["Native", netChip(v.native)], ["Tagged", netChips(v.tagged)], ["Voice", netChip(v.voice)]);
+  else rows.push(["VLANs", h("span", { class: "muted" }, "Not set in backup — uses the controller's default port profile.")]);
+  if (s.poe_mode || p.poe_capable !== undefined) rows.push(["PoE", `${s.poe_mode || "—"}${p.poe_capable === false ? " (port not PoE)" : ""}`]);
+  if (s.lldpmed_enabled !== undefined) rows.push(["LLDP-MED", bool(s.lldpmed_enabled)]);
+  if (s.isolation) rows.push(["Isolation", bool(true)]);
+  if (s.port_security_enabled) rows.push(["Port security", bool(true)]);
+  if (s.stormctrl) rows.push(["Storm control", bool(true)]);
+  if (s.speed) rows.push(["Speed (fixed)", `${s.speed} Mbps`]);
+  return h("dl", {}, rows.map(([k, x]) => [h("dt", {}, k), h("dd", {}, x instanceof Node ? x : String(x))]));
+}
+function renderDevice(dev) {
+  const head = h("div", { class: "dev-head" },
+    h("strong", {}, dev.name || dev.mac),
+    h("span", { class: "muted" }, [dev.model, dev.type === "usw" ? "switch" : dev.type === "uap" ? "access point" : dev.type,
+      dev.ip, dev.mac, dev.firmware && `fw ${dev.firmware}`].filter(Boolean).join("  ·  ")));
+  const box = h("div", { class: "device" }, head);
+  if (!dev.ports.length) {
+    box.append(h("div", { class: "empty" }, "No switch ports in backup."));
+    return box;
+  }
+  const detail = h("div", { class: "detail muted" }, "Click a port to see its settings.");
+  const isSfp = p => /sfp/i.test(p.media || "") || /sfp/i.test(p.name || "");
+  const copper = dev.ports.filter(p => !isSfp(p)), sfp = dev.ports.filter(isSfp);
+  const banks = [];
+  for (let i = 0; i < copper.length; i += 12) banks.push(copper.slice(i, i + 12));
+  for (let i = 0; i < sfp.length; i += 12) banks.push(sfp.slice(i, i + 12));
+  const plate = h("div", { class: "faceplate" });
+  for (const bank of banks) {
+    const b = h("div", { class: "bank" });
+    for (const p of bank) {
+      const v = p.vlans;
+      const cls = ["port", isSfp(p) ? "sfp" : "", v ? "" : "dflt"].join(" ");
+      const bg = v && v.native ? (netColor[v.native] || UNTAGGED) : null;
+      const el = h("div", {
+        class: cls, tabindex: "0", role: "button",
+        title: `${p.name}: ${p.profile}`,
+        style: bg ? `background:${bg};color:${textOn(bg)}` : null,
+      }, String(p.port));
+      if (v && v.voice) el.append(h("span", { class: "v" }, "V"));
+      if (v && v.tagged && v.tagged.length) {
+        el.append(h("div", { class: "tags" }, v.tagged.map(t => h("span", { style: `background:${netColor[t] || UNTAGGED}` }))));
+      }
+      const select = () => {
+        box.querySelectorAll(".port.sel").forEach(x => x.classList.remove("sel"));
+        el.classList.add("sel");
+        detail.classList.remove("muted");
+        detail.replaceChildren(portDetail(dev, p));
+      };
+      el.addEventListener("click", select);
+      el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(); } });
+      portEls.push({ el, p });
+      b.append(el);
+    }
+    plate.append(b);
+  }
+  box.append(plate, detail);
+  box.append(h("details", {}, h("summary", {}, `Port table (${dev.ports.length} ports)`),
+    table([
+      ["Port", p => p.port], ["Name", p => p.name], ["Profile", p => p.profile],
+      ["Native", p => p.vlans ? netChip(p.vlans.native) : dash()],
+      ["Tagged", p => p.vlans ? netChips(p.vlans.tagged) : dash(), "wrap-ok"],
+      ["Voice", p => p.vlans ? netChip(p.vlans.voice) : dash()],
+      ["PoE", p => (p.settings || {}).poe_mode],
+    ], dev.ports)));
+  return box;
+}
+const legend = h("div", { class: "legend" }, h("span", { class: "muted" }, "Highlight ports carrying:"),
+  [...S.networks].sort((a, b) => (a.vlan ?? 0) - (b.vlan ?? 0)).map(n =>
+    h("button", { class: "chip", "data-net": n.name, onclick: () => { activeNet = activeNet === n.name ? null : n.name; applyFilter(); } },
+      h("i", { style: `background:${netColor[n.name]}` }), n.vlan == null ? n.name : `${n.name} · ${n.vlan}`)));
+const key = h("div", { class: "key" },
+  h("span", {}, "Fill = native VLAN"),
+  h("span", {}, "Bottom stripe = tagged VLANs"),
+  h("span", {}, h("b", {}, "V"), " = voice VLAN"),
+  h("span", {}, h("span", { class: "sw", style: "background:repeating-linear-gradient(45deg,var(--panel),var(--panel) 3px,var(--hatch) 3px,var(--hatch) 6px)" }), "controller default (no override)"));
+const devWrap = h("div", {}, legend, ...[...S.devices].sort((a, b) => (b.ports.length - a.ports.length)).map(renderDevice), key);
+fill("devices", devWrap, S.devices.length);
+</script>
+</body>
+</html>
